@@ -34,7 +34,27 @@ spec:
         kustomize:
           images:
             - 'pr-preview-app=ghcr.io/rakshith256/pr-preview-platform:pr-{{.number}}'
-
+          patches:
+            - target:
+                group: apps
+                version: v1
+                kind: Deployment
+                name: preview-app
+              patch: |-
+                - op: replace
+                  path: /spec/template/spec/containers/0/env/1/value
+                  value: '{{.number}}'
+                - op: replace
+                  path: /spec/template/spec/containers/0/env/2/value
+                  value: '{{.head_sha}}'
+            - target:
+                version: v1
+                kind: Namespace
+                name: preview-namespace
+              patch: |-
+                - op: replace
+                  path: /metadata/name
+                  value: 'preview-{{.number}}'
       destination:
         server: https://kubernetes.default.svc
         namespace: 'preview-{{.number}}'
