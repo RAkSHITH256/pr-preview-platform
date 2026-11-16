@@ -1,0 +1,67 @@
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: pr-preview
+  namespace: argocd
+spec:
+  goTemplate: true
+  goTemplateOptions:
+    - missingkey=error
+
+  generators:
+    - pullRequest:
+        requeueAfterSeconds: 60
+        github:
+          owner: RAkSHITH256
+          repo: pr-preview-platform
+
+  template:
+    metadata:
+      name: 'preview-{{.number}}'
+      finalizers:
+        - resources-finalizer.argocd.argoproj.io
+      labels:
+        app.kubernetes.io/part-of: pr-preview-platform
+        preview.pr-number: '{{.number}}'
+
+    spec:
+      project: default
+
+      source:
+        repoURL: https://github.com/RAkSHITH256/pr-preview-platform.git
+        targetRevision: '{{.head_sha}}'
+        path: k8s/preview
+        kustomize:
+          images:
+            - 'pr-preview-app=ghcr.io/rakshith256/pr-preview-platform:pr-{{.number}}'
+          patches:
+            - target:
+                group: apps
+                version: v1
+                kind: Deployment
+                name: preview-app
+              patch: |-
+                - op: replace
+                  path: /spec/template/spec/containers/0/env/1/value
+                  value: '{{.number}}'
+                - op: replace
+                  path: /spec/template/spec/containers/0/env/2/value
+                  value: '{{.head_sha}}'
+            - target:
+                version: v1
+                kind: Namespace
+                name: preview-namespace
+              patch: |-
+                - op: replace
+                  path: /metadata/name
+                  value: 'preview-{{.number}}'
+      destination:
+        server: https://kubernetes.default.svc
+        namespace: 'preview-{{.number}}'
+
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        syncOptions:
+          - CreateNamespace=true
