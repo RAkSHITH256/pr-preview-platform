@@ -1,0 +1,59 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: preview-app
+  namespace: pr-preview
+  labels:
+    app: preview-app
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: preview-app
+  template:
+    metadata:
+      labels:
+        app: preview-app
+    spec:
+      automountServiceAccountToken: false
+      containers:
+        - name: preview-app
+          image: pr-preview-app:dev
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 8080
+          env:
+            - name: APP_ENV
+              value: "development"
+            - name: PR_NUMBER
+              value: "local"
+            - name: GIT_SHA
+              value: "local"
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 2
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: 25m
+              memory: 32Mi
+            limits:
+              cpu: 250m
+              memory: 64Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            runAsUser: 65532
+            capabilities:
+              drop:
+                - ALL
